@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"github.com/vincemoke66/keyper-api/database"
-	"github.com/vincemoke66/keyper-api/router"
+	"github.com/vincemoke66/ada-api/database"
+	"github.com/vincemoke66/ada-api/router"
 )
 
 func main() {
@@ -15,6 +15,5 @@ func main() {
 	// Setup the router
 	router.SetupRoutes(app)
 
-	// Listen on PORT 3000
-	app.Listen("192.168.101.77:8080")
+	app.Listen("192.168.147.250:8081")
 }

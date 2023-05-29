@@ -2,7 +2,7 @@ package recordRoutes
 
 import (
 	"github.com/gofiber/fiber/v2"
-	recordHandler "github.com/vincemoke66/keyper-api/internals/handlers/record"
+	recordHandler "github.com/vincemoke66/ada-api/internals/handlers/record"
 )
 
 func SetupStudentRoutes(router fiber.Router) {

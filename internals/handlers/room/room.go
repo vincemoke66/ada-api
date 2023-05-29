@@ -5,8 +5,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"github.com/vincemoke66/keyper-api/database"
-	"github.com/vincemoke66/keyper-api/internals/model"
+	"github.com/vincemoke66/ada-api/database"
+	"github.com/vincemoke66/ada-api/internals/model"
 )
 
 // GetRooms func gets all existing rooms

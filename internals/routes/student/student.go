@@ -2,7 +2,7 @@ package studentRoutes
 
 import (
 	"github.com/gofiber/fiber/v2"
-	studentHandler "github.com/vincemoke66/keyper-api/internals/handlers/student"
+	studentHandler "github.com/vincemoke66/ada-api/internals/handlers/student"
 )
 
 func SetupStudentRoutes(router fiber.Router) {

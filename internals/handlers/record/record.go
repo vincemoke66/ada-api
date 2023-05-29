@@ -1,10 +1,13 @@
 package recordHandler
 
 import (
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"github.com/vincemoke66/keyper-api/database"
-	"github.com/vincemoke66/keyper-api/internals/model"
+	"github.com/vincemoke66/ada-api/database"
+	"github.com/vincemoke66/ada-api/internals/model"
+	"gorm.io/gorm"
 )
 
 // GetAllRecords func gets all records
@@ -19,7 +22,7 @@ func GetAllRecords(c *fiber.Ctx) error {
 	var records []model.Record
 
 	// find all records
-	db.Find(&records)
+	db.Order("created_at DESC").Find(&records)
 
 	// If no record is present return an error
 	if len(records) == 0 {
@@ -45,109 +48,52 @@ func CreateRecord(c *fiber.Ctx) error {
 	record := new(model.Record)
 
 	type RecordToAdd struct {
-		Type     model.RecordType `json:"type"`
-		SchoolID string           `json:"school_id"`
-		RFID     string           `json:"rfid"`
+		StudentRFID string
+		RoomName    string
 	}
 
 	record_to_add := new(RecordToAdd)
-
-	// Parse the body to the key object
 	err := c.BodyParser(record_to_add)
 	// Return parse error if any
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"status": "error", "message": "Error parsing data", "data": err})
+		return c.Status(400).JSON(fiber.Map{"status": "error", "message": "Review your input", "data": err})
 	}
 
-	if record_to_add.Type != "return" && record_to_add.SchoolID == "" {
-		return c.Status(400).JSON(fiber.Map{"status": "error", "message": "Review your input", "data": nil})
-	}
-
-	// Create a temporary room data
+	// Read if the sent studentRFID is valid
+	// Create a temporary student data
 	var storedStudent model.Student
-
-	// Create a temporary key data
-	var storedKey model.Key
-	// Find the key with the given school_id
-	db.Find(&storedKey, "rfid = ?", record_to_add.RFID)
-	// If key does not exists, return an error
-	if storedKey.ID == uuid.Nil {
-		return c.Status(409).JSON(fiber.Map{"status": "error", "message": "Key does not exist.", "data": nil})
-	}
-
-	var latestRecord model.Record
-
-	var records []model.Record
-	db.Find(&records)
-	if len(records) != 0 {
-		db.Order("created_at DESC").Where("key_id = ?", storedKey.ID).First(&latestRecord)
-	}
-
-	if record_to_add.Type == "borrow" && latestRecord.Type == "borrow" {
-		return c.Status(400).JSON(fiber.Map{"status": "error", "message": "Key already borrowed", "data": nil})
-	}
-
-	if record_to_add.Type == "borrow" && storedKey.Status == "borrowed" {
-		return c.Status(400).JSON(fiber.Map{"status": "error", "message": "Key already borrowed", "data": nil})
-	}
-
-	if record_to_add.Type == "return" && storedKey.Status == "available" {
-		return c.Status(400).JSON(fiber.Map{"status": "error", "message": "Key already returned", "data": nil})
-	}
-
-	if record_to_add.Type == "return" && latestRecord.Type == "return" {
-		return c.Status(400).JSON(fiber.Map{"status": "error", "message": "Key already returned", "data": nil})
-	}
-
-	if record_to_add.Type == "return" && record_to_add.SchoolID == "" {
-		if latestRecord.ID == uuid.Nil {
-			return c.Status(400).JSON(fiber.Map{"status": "error", "message": "Review your input", "data": nil})
-		}
-		if latestRecord.Type == "return" {
-			return c.Status(400).JSON(fiber.Map{"status": "error", "message": "Key already returned", "data": nil})
-		}
-
-		db.Find(&storedStudent, "id = ?", latestRecord.StudentID)
-	} else {
-		db.Find(&storedStudent, "school_id = ?", record_to_add.SchoolID)
-	}
-
+	db.Find(&storedStudent, "rfid = ?", record_to_add.StudentRFID)
 	// If student does not exist, return an error
 	if storedStudent.ID == uuid.Nil {
 		return c.Status(409).JSON(fiber.Map{"status": "error", "message": "Student does not exist.", "data": nil})
 	}
 
+	// Read if the sent roomName is valid
+	// Create a temporary room data
 	var storedRoom model.Room
-	db.Find(&storedRoom, "id = ?", storedKey.RoomID)
+	db.Find(&storedRoom, "name = ?", record_to_add.RoomName)
 	// If room does not exist, return an error
 	if storedRoom.ID == uuid.Nil {
 		return c.Status(409).JSON(fiber.Map{"status": "error", "message": "Room does not exist.", "data": nil})
 	}
 
-	var storedBuilding model.Building
-	db.Find(&storedBuilding, "id = ?", storedKey.BuildingID)
-	// If building does not exist, return an error
-	if storedBuilding.ID == uuid.Nil {
-		return c.Status(409).JSON(fiber.Map{"status": "error", "message": "Building does not exist.", "data": nil})
+	// Check if the entered room and current time has a schedule
+	currentTime := time.Now()
+	hasSchedule, scheduleFound, err := CheckSchedule(currentTime, record_to_add.RoomName)
+
+	if !hasSchedule {
+		return c.Status(400).JSON(fiber.Map{"status": "error", "message": "Invalid input.", "data": nil})
 	}
-	// Add a uuid to the new key
+
+	// If the currentTime and roomName has a correct schedule
+	// Create a new record
 	record.ID = uuid.New()
-
-	record.Type = record_to_add.Type
 	record.StudentID = storedStudent.ID
-	record.KeyID = storedKey.ID
+	record.Section = storedStudent.Section
+	record.Subject = scheduleFound.Subject
 	record.RoomName = storedRoom.Name
-	record.BuildingName = storedBuilding.Name
 
-	// Update key status
-	if record.Type == "return" {
-		storedKey.Status = "available"
-	} else if record.Type == "borrow" {
-		storedKey.Status = "borrowed"
-	}
-	db.Save(storedKey)
-
-	// Create the record and return error if encountered
+	// Create the Record and return error if encountered
 	err = db.Create(&record).Error
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"status": "error", "message": "Could not create record", "data": err})
@@ -157,130 +103,22 @@ func CreateRecord(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"status": "success", "message": "Record created", "data": record})
 }
 
-// GetStudent func get one student by school_id
-// @Description Get one student by school_id
-// @Tags Student
-// @Accept json
-// @Produce json
-// @Success 200 {object} model.Student
-// @router /api/student/{school_id} [get]
-// func GetStudent(c *fiber.Ctx) error {
-// 	db := database.DB
-// 	var student model.Student
+// Function to check if the input matches a schedule
+func CheckSchedule(inputTime time.Time, roomName string) (bool, model.Schedule, error) {
+	db := database.DB
+	var schedule model.Schedule
 
-// 	// Read the param school_id
-// 	school_id := c.Params("school_id")
+	// Query to check if there is a matching schedule
+	err := db.Where("start_time <= ? AND end_time >= ? AND room_name = ?", inputTime, inputTime, roomName).First(&schedule).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			// No matching schedule found
+			return false, model.Schedule{}, nil
+		}
+		// Error occurred during the query
+		return false, model.Schedule{}, err
+	}
 
-// 	// Find the student with the given school_id
-// 	db.Find(&student, "school_id = ?", school_id)
-
-// 	// If no such student present, return an error
-// 	if student.ID == uuid.Nil {
-// 		return c.Status(404).JSON(fiber.Map{"status": "error", "message": "Student not found", "data": nil})
-// 	}
-
-// 	// Return the student with the specified school_id
-// 	return c.JSON(fiber.Map{"status": "success", "message": "Student Found", "data": student})
-// }
-
-// UpdateKey update a key by rfid
-// @Description Update a Key by rfid
-// @Tags Key
-// @Accept json
-// @Produce json
-// @Param building_name body string true "building_name"
-// @Param room_name body string true "room_name"
-// @Param status body string true "status"
-// @Success 200 {object} model.Key
-// @router /api/key/{rfid} [put]
-// func UpdateKey(c *fiber.Ctx) error {
-// 	// Create a struct for updating only writable values
-// 	type KeyToUpdate struct {
-// 		BuildingName string          `json:"building_name"`
-// 		RoomName     string          `json:"room_name"`
-// 		Status       model.KeyStatus `json:"status"`
-// 	}
-
-// 	db := database.DB
-// 	var key model.Key
-
-// 	// Read the param school_id
-// 	rfid := c.Params("rfid")
-
-// 	// Find the key with the given school_id param
-// 	db.Find(&key, "rfid = ?", rfid)
-
-// 	// If no such key, return an error
-// 	if key.ID == uuid.Nil {
-// 		return c.Status(404).JSON(fiber.Map{"status": "error", "message": "Key not found", "data": nil})
-// 	}
-
-// 	// Store the body containing the updated data
-// 	var key_to_update KeyToUpdate
-// 	err := c.BodyParser(&key_to_update)
-// 	// Return parsing error if encountered
-// 	if err != nil {
-// 		return c.Status(409).JSON(fiber.Map{"status": "error", "message": "Review your input", "data": err})
-// 	}
-
-// 	// Create a temporary building data
-// 	var storedBuidling model.Building
-// 	db.Find(&storedBuidling, "name = ?", key_to_update.BuildingName)
-// 	// If building does not exists, return an error
-// 	if storedBuidling.ID == uuid.Nil {
-// 		return c.Status(409).JSON(fiber.Map{"status": "error", "message": "Building does not exist.", "data": nil})
-// 	}
-
-// 	// Create a temporary room data
-// 	var storedRoom model.Room
-// 	db.Find(&storedRoom, "name = ?", key_to_update.RoomName)
-// 	// If room does not exists, return an error
-// 	if storedRoom.ID == uuid.Nil {
-// 		return c.Status(409).JSON(fiber.Map{"status": "error", "message": "Room does not exist.", "data": nil})
-// 	}
-
-// 	// Edit the key
-// 	key.BuildingID = storedBuidling.ID
-// 	key.RoomID = storedRoom.ID
-// 	key.Status = key_to_update.Status
-
-// 	// Save the Changes
-// 	db.Save(&key)
-
-// 	// Return the updated key
-// 	return c.JSON(fiber.Map{"status": "success", "message": "Key Updated", "data": key})
-// }
-
-// DeleteKey delete a key by rfid
-// @Description Delete a Key by rfid
-// @Tags Key
-// @Accept json
-// @Produce json
-// @Success 200
-// @router /api/key/{rfid} [delete]
-// func DeleteKey(c *fiber.Ctx) error {
-// 	db := database.DB
-// 	var key model.Key
-
-// 	// Read the param key_rfid
-// 	key_rfid := c.Params("rfid")
-
-// 	// Find the key with the given rfid param
-// 	db.Find(&key, "rfid = ?", key_rfid)
-
-// 	// If no such key present return an error
-// 	if key.ID == uuid.Nil {
-// 		return c.Status(404).JSON(fiber.Map{"status": "error", "message": "Key not found", "data": nil})
-// 	}
-
-// 	// Delete the key
-// 	err := db.Delete(&key, "rfid = ?", key_rfid).Error
-
-// 	// Return error if encountered
-// 	if err != nil {
-// 		return c.Status(500).JSON(fiber.Map{"status": "error", "message": "Failed to delete key", "data": nil})
-// 	}
-
-// 	// Return success message
-// 	return c.JSON(fiber.Map{"status": "success", "message": "Key Deleted"})
-// }
+	// Matching schedule found
+	return true, schedule, nil
+}

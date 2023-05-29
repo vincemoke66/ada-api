@@ -5,8 +5,8 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/vincemoke66/keyper-api/config"
-	"github.com/vincemoke66/keyper-api/internals/model"
+	"github.com/vincemoke66/ada-api/config"
+	"github.com/vincemoke66/ada-api/internals/model"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )

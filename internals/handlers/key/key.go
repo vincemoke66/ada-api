@@ -3,9 +3,32 @@ package keyHandler
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"github.com/vincemoke66/keyper-api/database"
-	"github.com/vincemoke66/keyper-api/internals/model"
+	"github.com/vincemoke66/ada-api/database"
+	"github.com/vincemoke66/ada-api/internals/model"
 )
+
+// GetKeys func gets all existing keys
+// @Description Get all existing keys
+// @Tags Key
+// @Accept json
+// @Produce json
+// @Success 200 {array} model.Key
+// @router /api/key [get]
+func GetKeys(c *fiber.Ctx) error {
+	db := database.DB
+	var keys []model.Key
+
+	// find all keys in the database
+	db.Find(&keys)
+
+	// If no key is present return an error
+	if len(keys) == 0 {
+		return c.Status(404).JSON(fiber.Map{"status": "error", "message": "No Keys data found", "data": nil})
+	}
+
+	// Else return keys
+	return c.JSON(fiber.Map{"status": "success", "message": "Keys Found", "data": keys})
+}
 
 // GetKeysUsingBuildingName func gets all keys based on the given building name
 // @Description Gets all keys based on the given building name
@@ -144,6 +167,7 @@ func CreateKey(c *fiber.Ctx) error {
 	key.RoomID = storedRoom.ID
 	key.BuildingName = storedBuidling.Name
 	key.RoomName = storedRoom.Name
+	key.RoomFloor = storedRoom.Floor
 
 	// Create the Key and return error if encountered
 	err = db.Create(&key).Error

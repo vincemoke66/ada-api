@@ -2,7 +2,7 @@ package roomRoutes
 
 import (
 	"github.com/gofiber/fiber/v2"
-	roomHandler "github.com/vincemoke66/keyper-api/internals/handlers/room"
+	roomHandler "github.com/vincemoke66/ada-api/internals/handlers/room"
 )
 
 func SetupStudentRoutes(router fiber.Router) {

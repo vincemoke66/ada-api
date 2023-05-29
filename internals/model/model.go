@@ -1,6 +1,8 @@
 package model
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -28,6 +30,7 @@ type Key struct {
 	BuildingID   uuid.UUID `gorm:"foreignkey:BuildingID"`
 	RoomID       uuid.UUID `gorm:"foreignkey:RoomID"`
 	RoomName     string
+	RoomFloor    int `json:"floor"`
 	BuildingName string
 }
 
@@ -49,6 +52,7 @@ type Student struct {
 	RFID      string    `json:"rfid" gorm:"column:rfid"`
 	College   string    `json:"college"`
 	Course    string    `json:"course"`
+	Section   string
 }
 
 type Instructor struct {
@@ -61,17 +65,22 @@ type Instructor struct {
 
 type Record struct {
 	gorm.Model
-	ID           uuid.UUID  `gorm:"type:uuid"`
-	Type         RecordType `json:"type"`
-	StudentID    uuid.UUID  `gorm:"foreignkey:StudentID"`
-	KeyID        uuid.UUID  `gorm:"foreignkey:KeyID"`
-	RoomName     string
-	BuildingName string
+	ID          uuid.UUID `gorm:"type:uuid"`
+	StudentID   uuid.UUID `gorm:"foreignkey:StudentID"`
+	ScheduleID  uuid.UUID `gorm:"foreignkey:ScheduleID"`
+	StudentName string
+	Section     string
+	RoomName    string
+	Subject     string
 }
 
-type RecordType string
-
-const (
-	RecordTypeBorrow RecordType = "borrow"
-	RecordTypeReturn RecordType = "return"
-)
+type Schedule struct {
+	gorm.Model
+	ID             uuid.UUID `gorm:"type:uuid"`
+	StartTime      time.Time
+	EndTime        time.Time
+	DayOfWeek      time.Weekday
+	RoomName       string
+	InstructorName string
+	Subject        string
+}

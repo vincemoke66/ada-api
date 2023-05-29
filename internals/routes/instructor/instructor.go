@@ -2,7 +2,7 @@ package instructorRoutes
 
 import (
 	"github.com/gofiber/fiber/v2"
-	instructorHandler "github.com/vincemoke66/keyper-api/internals/handlers/instructor"
+	instructorHandler "github.com/vincemoke66/ada-api/internals/handlers/instructor"
 )
 
 func SetupStudentRoutes(router fiber.Router) {

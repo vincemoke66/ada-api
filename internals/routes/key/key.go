@@ -2,7 +2,7 @@ package keyRoutes
 
 import (
 	"github.com/gofiber/fiber/v2"
-	keyHandler "github.com/vincemoke66/keyper-api/internals/handlers/key"
+	keyHandler "github.com/vincemoke66/ada-api/internals/handlers/key"
 )
 
 func SetupStudentRoutes(router fiber.Router) {
@@ -11,10 +11,13 @@ func SetupStudentRoutes(router fiber.Router) {
 	// Create a key
 	key.Post("/", keyHandler.CreateKey)
 
-	// Read all key in a specific building
+	// Read all keys in a specific building
+	key.Get("/", keyHandler.GetKeys)
+
+	// Read all keys in a specific building
 	key.Get("/rfid/:rfid", keyHandler.GetKeyUsingRFID)
 
-	// Read all key in a specific building
+	// Read all keys in a specific building
 	key.Get("/bn/:building_name", keyHandler.GetKeysUsingBuildingName)
 
 	// Read a key
